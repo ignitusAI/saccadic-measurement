@@ -22,7 +22,7 @@ from scipy.signal import freqs
 ############################################################################################
 Fl=650       # the focal length of the webcam, this value is calculated by focal_length.py            #
 eye_dis=600   # distance of eye from the camera in mm                                                 #
-timeTest=40   # the delay for the first screen of the web cam (to enable participant to see himself)  #
+timeTest=40   # delay in ms before displaying. the delay for the first screen of the web cam (to enable participant to see himself)  #
 timeSamp= 25  # shift time of the white circle                                                        #
 numSamp=800   # time of the whole test                                                                #
 circelSize = 25  # the size of the white circle                                                       #
@@ -149,6 +149,7 @@ def CalTimeShift(xcirList,xReyeList,fs):
     time_del = abs(time_shift * samptimeavg)
     return time_del,pupil_dist
 
+# Main Loop
 while True:
     # get a new frame from the webcam
     _, frame = webcam.read()
@@ -168,13 +169,16 @@ while True:
     elif gaze.is_center():
         text = "Looking center"
 
+    # Displays current gaze (hopefully)
     cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
 
+    # computes and displays current gaze
     left_pupil = gaze.pupil_left_coords()
     right_pupil = gaze.pupil_right_coords()
-
     cv2.putText(frame, "Left pupil:  " + str(left_pupil), (10, 60), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
     cv2.putText(frame, "Right pupil: " + str(right_pupil), (10, 90), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
+    
+    # first 40 frames are skipped
     if cnt<timeTest: # cnt represent the delay for the first screen of the web cam
         cv2.imshow('DD', frame)
         cnt += 1
@@ -184,28 +188,37 @@ while True:
         #screen = pygame.display.set_mode((width, height))
 
         cntFace = 0
+        # done is False when user clicks close
+        # numSamp is the length of the whole test
         while not done and cntOscil < numSamp:
 
+            # event handler
             for event in pygame.event.get():  # User did something
                if event.type == pygame.QUIT:  # If user clicked close
                     done = True  # Flag that we are done so we exit this loop
 
-            # Set the screen background
+            # Set the screen background to black
             screen.fill(BLACK)
-            # Draw circle
+            # Draw circle in the middle of the screen
             xCen = int(width / 2)
             yCen = int(height / 2)
+            # shift to the right
             xShift = int(width / 2 - width / 15)
             #yShift = int(height / 2 - height / 20)
            # xAxis = xCen
             #yAxis = yCen
+            
+            # gets time in ms? from start of program
             rTimePupils = pygame.time.get_ticks()
             #if rTimePupils % 2000<=1000:
             if cntOscil < timeSamp:
                 xAxis = xCen
                 yAxis = yCen
             #elif rTimePupils % 2000<=1000:
+            # something happens every 25th time.
             elif cntOscil % timeSamp == 0:
+                # inclusive
+                # random.randrange(1,3+1)
                 randloc = random.randint(1,3) # = random.randint(0,3) to have three different positions
 
                 if randloc==1:
@@ -223,8 +236,8 @@ while True:
                         rPosCnt=0
                     else:
                         xAxis = xCen + xShift
-
             pygame.draw.circle(screen, WHITE, (xAxis, yAxis), circelSize)
+            
             # get a new frame from the webcam
             _, frame = webcam.read()
             gaze.refresh(frame,cntFace,mface)
@@ -248,6 +261,8 @@ while True:
             yLeyeList.append(yL)
 
             cntOscil += 1  # cycle counter
+            
+            # flips display buffers?
             pygame.display.flip()
             if cv2.waitKey(1) == 27:
                 break
@@ -256,8 +271,13 @@ while True:
         # write the time and the coordinate of the pupils to file
         fRes = open('Result.txt', 'w')
         for i in range(len(timeList)):
-            fRes.write("%d\t%d\t%d\t%d\t%d\t%d\t%d\n" % (timeList[i], xcirList[i], ycirList[i], xReyeList[i], yReyeList[i],xLeyeList[i], yLeyeList[i]))
+            fRes.write("%d\t%d\t%d\t%d\t%d\t%d\t%d\n" % (timeList[i], 
+                                                         xcirList[i], ycirList[i], 
+                                                         xReyeList[i], yReyeList[i],
+                                                         xLeyeList[i], yLeyeList[i]))
             if i > 3:
+                # append the time in ms between each sample
+                # timelist is time in ms from beginning of program
                 sampleTime.append(timeList[i]-timeList[i-1])
         fRes.close()
         samptimeavg=sum(sampleTime) / (len(sampleTime) - 3)
